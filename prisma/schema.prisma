@@ -1,0 +1,296 @@
+// DevOps Study Tracker — data model.
+// Money is whole naira (Int). Fines, verified hours, statuses, streaks and
+// balances are never stored: they are calculated by src/lib/rules.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Auth (Auth.js / NextAuth Prisma adapter tables) ─────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  accounts      Account[]
+  sessions      Session[]
+  memberships   Member[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// ── Groups, rounds and members ──────────────────────────────────────────────
+
+model Group {
+  id                      String   @id @default(cuid())
+  name                    String
+  timezone                String   @default("Africa/Lagos")
+  currency                String   @default("NGN")
+  fineMissedPerMember     Int      @default(5000)
+  fineLateFlat            Int      @default(2000)
+  minVerifiedHoursPerWeek Float    @default(6)
+  shortHoursFineEnabled   Boolean  @default(false)
+  shortHoursFine          Int      @default(2000)
+  createdAt               DateTime @default(now())
+  rounds                  Round[]
+  members                 Member[]
+  courses                 Course[]
+}
+
+enum RoundStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+/// One 40-week cycle. Starting a new round keeps the old one for the Archive.
+model Round {
+  id               String         @id @default(cuid())
+  groupId          String
+  number           Int
+  startDate        DateTime       @db.Date // a Sunday: first day of Week 1
+  totalWeeks       Int            @default(40)
+  targetFinishDate DateTime       @db.Date
+  status           RoundStatus    @default(ACTIVE)
+  createdAt        DateTime       @default(now())
+  group            Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  roundMembers     RoundMember[]
+  syllabus         SyllabusWeek[]
+  logs             StudyLog[]
+  scores           WeeklyScore[]
+  reviews          PeerReview[]
+  payments         Payment[]
+  carryOvers       FineCarryOver[]
+
+  @@unique([groupId, number])
+}
+
+/// A person in a group. Linked to a User once they sign in with the invited email.
+model Member {
+  id           String        @id @default(cuid())
+  groupId      String
+  userId       String?
+  displayName  String
+  email        String?
+  isAdmin      Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  group        Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  rounds       RoundMember[]
+  progress     MemberModuleProgress[]
+
+  @@unique([groupId, email])
+  @@unique([groupId, userId])
+}
+
+/// A member's place in one round: when they joined and their rotation order.
+model RoundMember {
+  id              String          @id @default(cuid())
+  roundId         String
+  memberId        String
+  joinedWeek      Int             @default(1)
+  joinOrder       Int
+  round           Round           @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  member          Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  logs            StudyLog[]      @relation("logger")
+  verifications   StudyLog[]      @relation("verifier")
+  scores          WeeklyScore[]
+  reviewsReceived PeerReview[]    @relation("reviewee")
+  reviewsGiven    PeerReview[]    @relation("reviewer")
+  payments        Payment[]
+  carryOvers      FineCarryOver[]
+
+  @@unique([roundId, memberId])
+  @@unique([roundId, joinOrder])
+}
+
+// ── Syllabus and course progress ────────────────────────────────────────────
+
+model SyllabusWeek {
+  id          String   @id @default(cuid())
+  roundId     String
+  weekNumber  Int
+  title       String
+  description String   @default("")
+  courses     String[]
+  videoHours  Float?
+  deliverable String   @default("")
+  isCertWeek  Boolean  @default(false)
+  certName    String?
+  notes       String   @default("")
+  covered     Boolean  @default(false)
+  round       Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, weekNumber])
+}
+
+enum CourseKind {
+  PATH
+  ADD_ON
+}
+
+model Course {
+  id         String     @id @default(cuid())
+  groupId    String
+  order      Int
+  kind       CourseKind
+  name       String
+  videoHours Float?
+  group      Group      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  modules    Module[]
+
+  @@unique([groupId, name])
+}
+
+model Module {
+  id       String                 @id @default(cuid())
+  courseId String
+  order    Int
+  name     String
+  course   Course                 @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress MemberModuleProgress[]
+  logs     StudyLog[]
+
+  @@unique([courseId, order])
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  DONE
+}
+
+model MemberModuleProgress {
+  memberId    String
+  moduleId    String
+  status      ProgressStatus @default(NOT_STARTED)
+  completedAt DateTime?
+  member      Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  module      Module         @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@id([memberId, moduleId])
+}
+
+// ── Accountability ──────────────────────────────────────────────────────────
+
+model StudyLog {
+  id            String       @id @default(cuid())
+  roundId       String
+  roundMemberId String
+  date          DateTime     @db.Date
+  hours         Float
+  labsDone      Int          @default(0)
+  whatCovered   String       @default("")
+  moduleId      String?
+  screenshotUrl String?
+  verifiedById  String?
+  verifiedAt    DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  round         Round        @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  logger        RoundMember  @relation("logger", fields: [roundMemberId], references: [id], onDelete: Cascade)
+  verifiedBy    RoundMember? @relation("verifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+  module        Module?      @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+
+  @@index([roundId, date])
+}
+
+model WeeklyScore {
+  id                  String      @id @default(cuid())
+  roundId             String
+  roundMemberId       String
+  week                Int
+  attended            Boolean     @default(false)
+  late15Plus          Boolean     @default(false)
+  studiedAndPresented Boolean     @default(false)
+  githubPushed        Boolean     @default(false)
+  githubLink          String?
+  linkedinPosted      Boolean     @default(false)
+  linkedinLink        String?
+  waiverRequested48h  Boolean     @default(false)
+  notes               String      @default("")
+  updatedAt           DateTime    @updatedAt
+  round               Round       @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  roundMember         RoundMember @relation(fields: [roundMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([roundMemberId, week])
+}
+
+/// Reviewer is fixed by the rotation (src/lib/rules/rotation.ts) when the row is created.
+model PeerReview {
+  id          String      @id @default(cuid())
+  roundId     String
+  week        Int
+  revieweeId  String
+  reviewerId  String
+  signedOff   Boolean     @default(false)
+  comment     String      @default("")
+  signedOffAt DateTime?
+  round       Round       @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  reviewee    RoundMember @relation("reviewee", fields: [revieweeId], references: [id], onDelete: Cascade)
+  reviewer    RoundMember @relation("reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, week, revieweeId])
+}
+
+/// Money paid into the fines pool.
+model Payment {
+  id            String      @id @default(cuid())
+  roundId       String
+  roundMemberId String
+  amount        Int
+  date          DateTime    @db.Date
+  note          String      @default("")
+  createdAt     DateTime    @default(now())
+  round         Round       @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  roundMember   RoundMember @relation(fields: [roundMemberId], references: [id], onDelete: Cascade)
+}
+
+/// e.g. unpaid fines from a previous round.
+model FineCarryOver {
+  id            String      @id @default(cuid())
+  roundId       String
+  roundMemberId String
+  amount        Int
+  note          String      @default("")
+  createdAt     DateTime    @default(now())
+  round         Round       @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  roundMember   RoundMember @relation(fields: [roundMemberId], references: [id], onDelete: Cascade)
+}

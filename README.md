@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# DevOps Study Tracker
 
-## Getting Started
+Cross-accountability tracker for a small study group working through the KodeKloud
+DevOps Engineer path: verified study logs, rotating peer reviews, a weekly scoreboard
+and automatic fines. Replaces the group's Google Sheet.
 
-First, run the development server:
+> Status: **Milestone 1** — rules engine, data model and seed. No UI yet.
+> A full README with an architecture diagram arrives in Milestone 4.
+
+## Run locally
+
+Requires Node 20+ and Docker.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env
+npm run db:up        # Postgres 16 in Docker on localhost:5433
+npm run db:migrate   # apply migrations
+npm run db:seed      # group, Round 1, members, courses, syllabus
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Tests
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm test             # rules engine + seed parsing (no database needed)
+npm run test:db      # against a real Postgres: migrates + seeds `tracker_test`, then checks it
+npm run typecheck
+npm run lint
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Layout
 
-## Learn More
+| Path | What |
+|---|---|
+| `src/lib/rules/` | Pure TypeScript business rules (weeks, rotation, fines, waivers, hours, standings) + unit tests |
+| `src/lib/seed-data.ts` | CSV parsing for `seed/courses.csv` and `seed/syllabus.csv` |
+| `src/server/round-data.ts` | Loads a round from Postgres into the rules engine's shapes |
+| `prisma/` | Schema, migrations, seed script |
+| `seed/` | Course list (and the 40-week syllabus once exported) |
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Fines, verified hours, streaks and balances are always **calculated** from the
+stored facts, never stored, so they can't drift.

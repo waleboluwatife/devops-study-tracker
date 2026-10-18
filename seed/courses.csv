@@ -1,0 +1,24 @@
+order,type,course,video_hours,modules
+1,path,12 Factor App,0.75,"Codebase|Dependencies|Config|Backing services|Build, release and run|Processes|Port binding|Concurrency|Disposability|Dev/prod parity|Logs|Admin processes"
+2,path,DevOps Prerequisite,6.5,Linux basics|VirtualBox networking|Vagrant|Networking basics|Application basics (Java build & packaging)|Programming basics|Database basics|Git|Apache web server|IPs and ports|SSL & TLS basics|YAML
+3,path,Fundamentals of DevOps,2.5,Culture considerations|Values considerations|Crossing team functions|LEAN considerations|Collaboration and information radiation|Technology patterns|Value of DevOps
+4,path,Linux for Beginners,5.25,"Linux shell|Kernel|Runlevels|File types|Package management (RPM, YUM, DPKG, APT)|vi editor|Networking|DNS|SSH & SCP|iptables|systemd|NFS|LVM"
+5,path,Shell Scripts for Beginners,2,Shebang|Variables|Command line arguments|Arithmetic operations|Loops|E-commerce application project
+6,path,Python Basics,1.5,Python basics|Making decisions|Loops|Logic and bit operations|Lists|Functions|Tuples & dictionaries|Mock exams
+7,path,Git for Beginners,1.25,Fetching and pulling|Merge conflicts|Fork|Rebasing|Interactive rebasing|Cherry picking|Resetting and reverting|Stashing|Reflog
+8,path,Jenkins for Beginners,4.33,Jenkins basics|Setup and interface|Extending Jenkins|Jenkins pipelines|Automation and security
+9,path,Docker for Absolute Beginners,4,Containers|Images|Volumes|Networking|Container orchestration
+10,path,Kubernetes for Beginners,6,Setting up local environment|Pods|ReplicaSets|Deployments|Services
+11,path,Terraform for Beginners,4.75,Terraform basics|Terraform state|Terraform with AWS|Remote state|Provisioners|Import|Tainting resources and debugging|Modules|Functions and conditional expressions
+12,path,Helm for Beginners,2.25,Helm components|Helm charts|Pipelines|Conditionals|With blocks|Ranges|Named templates|Chart hooks|Packaging and signing charts
+13,path,Istio Service Mesh,2.75,Monoliths & microservices|Service mesh|Sidecars & Envoy|Kiali|Gateways|Virtual services|Destination rules|Fault injection|Timeouts|Retries|Circuit breaking|Authentication|Certificate management|Distributed tracing with Jaeger
+14,path,GitOps with ArgoCD,6,GitOps principles|Benefits & drawbacks|Architecture|Webhooks|Application health|Sync strategies|Declarative setup|Dex Okta connector|Bitnami sealed secrets|Metrics & monitoring|Alertmanager|ArgoCD notifications|CI/CD with GitOps|Jenkinsfile walkthrough
+15,path,Prometheus Certified Associate (PCA),6.75,Observability fundamentals|Prometheus fundamentals|PromQL|Dashboarding & visualization|Application instrumentation|Service discovery|Push gateway|Alerting|Monitoring Kubernetes|Mock exam
+16,path,DevOps Interview Preparation,5.5,Linux|Git|Docker|Kubernetes|Helm|HashiCorp|Ansible|Jenkins and CI/CD|AWS|Programming|DevOps
+17,add-on,GitHub Actions,,
+18,add-on,Ansible Basics,,
+19,add-on,HashiCorp Terraform Associate prep,,
+20,add-on,AWS Cloud Practitioner,,
+21,add-on,Certified Kubernetes Administrator (CKA),,Core concepts|Scheduling|Logging & monitoring|Application lifecycle management|Cluster maintenance|Security|Storage|Networking|Design and install a cluster (kubeadm)|Troubleshooting|Mock exams|Lightning labs
+22,add-on,AWS Solutions Architect Associate,,
+23,add-on,Certified Kubernetes Application Developer (CKAD),,
