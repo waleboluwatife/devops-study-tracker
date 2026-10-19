@@ -12,7 +12,8 @@ const prisma = new PrismaClient();
 const GROUP_NAME = 'DevOps Study Group';
 const START_DATE = '2026-10-11'; // Sunday, first day of Week 1
 const TOTAL_WEEKS = 40;
-// Member emails are not committed; admins add them in Settings (needed to sign in).
+// Member emails are not committed: the first admin's comes from SEED_ADMIN_EMAIL,
+// and admins add the others in Settings (an email is needed to sign in).
 const MEMBERS = [
   { displayName: 'Michael Akande', isAdmin: true },
   { displayName: 'Chisom', isAdmin: false },
@@ -26,9 +27,20 @@ const readSeed = (name: string) => {
   return existsSync(file) ? readFileSync(file, 'utf8') : null;
 };
 
+const ADMIN_EMAIL = (process.env.SEED_ADMIN_EMAIL ?? '').trim().toLowerCase() || null;
+
 async function main() {
-  if (await prisma.group.findFirst({ where: { name: GROUP_NAME } })) {
-    console.log(`"${GROUP_NAME}" already exists — nothing to seed.`);
+  const existing = await prisma.group.findFirst({ where: { name: GROUP_NAME } });
+  if (existing) {
+    // Only fill in the first admin's email if it is still missing.
+    if (ADMIN_EMAIL) {
+      const set = await prisma.member.updateMany({
+        where: { groupId: existing.id, displayName: MEMBERS[0].displayName, email: null },
+        data: { email: ADMIN_EMAIL },
+      });
+      if (set.count) console.log(`Set ${MEMBERS[0].displayName}'s sign-in email.`);
+    }
+    console.log(`"${GROUP_NAME}" already exists — nothing else to seed.`);
     return;
   }
 
@@ -48,7 +60,9 @@ async function main() {
 
     const roundMembers = [];
     for (const [i, m] of MEMBERS.entries()) {
-      const member = await tx.member.create({ data: { groupId: group.id, ...m } });
+      const member = await tx.member.create({
+        data: { groupId: group.id, ...m, email: i === 0 ? ADMIN_EMAIL : null },
+      });
       roundMembers.push(await tx.roundMember.create({
         data: { roundId: round.id, memberId: member.id, joinedWeek: 1, joinOrder: i + 1 },
       }));

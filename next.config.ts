@@ -1,7 +1,10 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    // Screenshots are compressed in the browser first; this is a safety margin.
+    serverActions: { bodySizeLimit: '4mb' },
+  },
 };
 
 export default nextConfig;

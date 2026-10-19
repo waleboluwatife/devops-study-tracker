@@ -13,16 +13,22 @@
     "db:up": "docker compose up -d --wait db",
     "db:migrate": "prisma migrate dev",
     "db:seed": "prisma db seed",
-    "test:db": "node scripts/test-db.mjs"
+    "test:db": "node scripts/test-db.mjs",
+    "test:e2e": "next build && playwright test"
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.11.3",
     "@prisma/client": "^6.19.3",
+    "@vercel/blob": "^2.8.2",
     "next": "15.5.4",
+    "next-auth": "^5.0.0-beta.32",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
