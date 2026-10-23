@@ -56,11 +56,11 @@ function LogFields({ courses, values, today, minDate }: { courses: CourseOption[
   );
 }
 
-export function AddLogForm({ courses, today, minDate }: { courses: CourseOption[]; today: string; minDate: string }) {
+export function AddLogForm({ courses, today, minDate, hours }: { courses: CourseOption[]; today: string; minDate: string; hours?: number }) {
   const { ref, state, onSubmit, busy } = useLogForm(addLog, true);
   return (
     <form ref={ref} onSubmit={onSubmit} className="space-y-3">
-      <LogFields courses={courses} today={today} minDate={minDate} />
+      <LogFields courses={courses} today={today} minDate={minDate} values={hours ? { date: today, hours, labs: 0, whatCovered: '', moduleId: null } : undefined} />
       <div>
         <label className="label">Screenshot (proof — your terminal / lab, not just a progress %)</label>
         <input name="screenshot" type="file" accept="image/*" className="input file:mr-3 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-3 file:py-1 file:font-semibold file:text-emerald-700" />

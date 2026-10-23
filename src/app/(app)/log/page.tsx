@@ -4,9 +4,11 @@ import { isVerified, todayIn, weekNumber, weekRange } from '@/lib/rules';
 import { prisma } from '@/server/db';
 import { dbDate, getViewer, isoDate, roundMemberNames } from '@/server/viewer';
 
-export default async function LogPage({ searchParams }: { searchParams: Promise<{ show?: string }> }) {
+export default async function LogPage({ searchParams }: { searchParams: Promise<{ show?: string; hours?: string }> }) {
   const v = await getViewer();
-  const showAll = (await searchParams).show === 'all';
+  const sp = await searchParams;
+  const showAll = sp.show === 'all';
+  const fromTimer = Number(sp.hours) > 0 && Number(sp.hours) <= 16 ? Number(sp.hours) : undefined;
   const me = v.roundMember?.id;
   const [courses, logs, names] = await Promise.all([
     prisma.course.findMany({ where: { groupId: v.group.id }, orderBy: { order: 'asc' }, include: { modules: { orderBy: { order: 'asc' } } } }),
@@ -26,9 +28,9 @@ export default async function LogPage({ searchParams }: { searchParams: Promise<
   return (
     <>
       {me ? (
-        <section className="card">
+        <section id="add" className="card scroll-mt-16">
           <h1 className="card-title">Log a study session</h1>
-          <AddLogForm courses={options} today={today} minDate={v.startDate} />
+          <AddLogForm courses={options} today={today} minDate={v.startDate} hours={fromTimer} />
         </section>
       ) : (
         <p className="card text-sm">You’re not part of this round, so you can’t log study.</p>
