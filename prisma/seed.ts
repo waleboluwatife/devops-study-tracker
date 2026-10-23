@@ -27,6 +27,16 @@ const readSeed = (name: string) => {
   return existsSync(file) ? readFileSync(file, 'utf8') : null;
 };
 
+// Certs to track (weeks are set once the real syllabus is in).
+const CERTS = [
+  { name: 'AWS Cloud Practitioner', notes: 'About $100 per person.' },
+  { name: 'HashiCorp Terraform Associate', notes: 'About $70.50.' },
+  { name: 'Prometheus Certified Associate (PCA)', notes: 'Watch for Linux Foundation sales.' },
+  { name: 'Certified Kubernetes Administrator (CKA)', notes: 'Price the CKA + CKAD bundle when booking.' },
+  { name: 'AWS Solutions Architect Associate', notes: '' },
+  { name: 'Certified Kubernetes Application Developer (CKAD)', notes: 'Final exam of the round.' },
+];
+
 const ADMIN_EMAIL = (process.env.SEED_ADMIN_EMAIL ?? '').trim().toLowerCase() || null;
 
 async function main() {
@@ -39,6 +49,11 @@ async function main() {
         data: { email: ADMIN_EMAIL },
       });
       if (set.count) console.log(`Set ${MEMBERS[0].displayName}'s sign-in email.`);
+    }
+    // Groups created before the cert tracker existed get the default list once.
+    if ((await prisma.cert.count({ where: { groupId: existing.id } })) === 0) {
+      await prisma.cert.createMany({ data: CERTS.map(c => ({ ...c, groupId: existing.id })) });
+      console.log('Added the default cert list.');
     }
     console.log(`"${GROUP_NAME}" already exists — nothing else to seed.`);
     return;
@@ -78,6 +93,8 @@ async function main() {
         },
       });
     }
+
+    await tx.cert.createMany({ data: CERTS.map(c => ({ ...c, groupId: group.id })) });
 
     await tx.fineCarryOver.create({
       data: { roundId: round.id, roundMemberId: roundMembers[0].id, amount: 15000, note: 'Unpaid fines from Round 1' },

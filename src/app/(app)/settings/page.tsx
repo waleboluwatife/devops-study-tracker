@@ -1,4 +1,5 @@
 import { MemberForm, SettingsForm } from '@/components/admin-forms';
+import { MeetingSettingsForm } from '@/components/meeting-controls';
 import { prisma } from '@/server/db';
 import { getViewer, isoDate } from '@/server/viewer';
 
@@ -9,6 +10,10 @@ export default async function SettingsPage() {
 
   return (
     <>
+      <section id="meeting" className="card scroll-mt-16">
+        <h2 className="card-title">Weekly meeting</h2>
+        <MeetingSettingsForm disabled={!v.isAdmin} link={g.meetingLink ?? ''} time={g.meetingTime} minutes={g.meetingMinutes} />
+      </section>
       <section className="card">
         <h1 className="card-title">Group settings {!v.isAdmin && '(view only — admins can edit)'}</h1>
         <SettingsForm disabled={!v.isAdmin} values={{
