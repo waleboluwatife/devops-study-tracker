@@ -5,3 +5,7 @@ export * from './hours';
 export * from './fines';
 export * from './reviews';
 export * from './standings';
+export * from './progress';
+export * from './meetings';
+export * from './habit';
+export * from './notifications';

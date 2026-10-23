@@ -69,10 +69,15 @@ model Group {
   minVerifiedHoursPerWeek Float    @default(6)
   shortHoursFineEnabled   Boolean  @default(false)
   shortHoursFine          Int      @default(2000)
+  /// Weekly meeting: Google Meet (or any) link, start time on the Saturday, length.
+  meetingLink             String?
+  meetingTime             String   @default("19:00")
+  meetingMinutes          Int      @default(90)
   createdAt               DateTime @default(now())
   rounds                  Round[]
   members                 Member[]
   courses                 Course[]
+  certs                   Cert[]
 }
 
 enum RoundStatus {
@@ -82,15 +87,15 @@ enum RoundStatus {
 
 /// One 40-week cycle. Starting a new round keeps the old one for the Archive.
 model Round {
-  id               String         @id @default(cuid())
+  id               String          @id @default(cuid())
   groupId          String
   number           Int
-  startDate        DateTime       @db.Date // a Sunday: first day of Week 1
-  totalWeeks       Int            @default(40)
-  targetFinishDate DateTime       @db.Date
-  status           RoundStatus    @default(ACTIVE)
-  createdAt        DateTime       @default(now())
-  group            Group          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  startDate        DateTime        @db.Date // a Sunday: first day of Week 1
+  totalWeeks       Int             @default(40)
+  targetFinishDate DateTime        @db.Date
+  status           RoundStatus     @default(ACTIVE)
+  createdAt        DateTime        @default(now())
+  group            Group           @relation(fields: [groupId], references: [id], onDelete: Cascade)
   roundMembers     RoundMember[]
   syllabus         SyllabusWeek[]
   logs             StudyLog[]
@@ -98,23 +103,27 @@ model Round {
   reviews          PeerReview[]
   payments         Payment[]
   carryOvers       FineCarryOver[]
+  rsvps            MeetingRsvp[]
+  meetings         Meeting[]
+  nudges           Nudge[]
+  activity         Activity[]
 
   @@unique([groupId, number])
 }
 
 /// A person in a group. Linked to a User once they sign in with the invited email.
 model Member {
-  id           String        @id @default(cuid())
-  groupId      String
-  userId       String?
-  displayName  String
-  email        String?
-  isAdmin      Boolean       @default(false)
-  createdAt    DateTime      @default(now())
-  group        Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  rounds       RoundMember[]
-  progress     MemberModuleProgress[]
+  id          String                 @id @default(cuid())
+  groupId     String
+  userId      String?
+  displayName String
+  email       String?
+  isAdmin     Boolean                @default(false)
+  createdAt   DateTime               @default(now())
+  group       Group                  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user        User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  rounds      RoundMember[]
+  progress    MemberModuleProgress[]
 
   @@unique([groupId, email])
   @@unique([groupId, userId])
@@ -136,6 +145,11 @@ model RoundMember {
   reviewsGiven    PeerReview[]    @relation("reviewer")
   payments        Payment[]
   carryOvers      FineCarryOver[]
+  focusSessions   FocusSession[]
+  rsvps           MeetingRsvp[]
+  nudgesSent      Nudge[]         @relation("nudger")
+  nudgesReceived  Nudge[]         @relation("nudged")
+  mockScores      MockScore[]
 
   @@unique([roundId, memberId])
   @@unique([roundId, joinOrder])
@@ -245,6 +259,8 @@ model WeeklyScore {
   linkedinPosted      Boolean     @default(false)
   linkedinLink        String?
   waiverRequested48h  Boolean     @default(false)
+  /// When the member tapped "I'm here" (sets attended / late automatically).
+  checkedInAt         DateTime?
   notes               String      @default("")
   updatedAt           DateTime    @updatedAt
   round               Round       @relation(fields: [roundId], references: [id], onDelete: Cascade)
@@ -292,5 +308,98 @@ model FineCarryOver {
   note          String      @default("")
   createdAt     DateTime    @default(now())
   round         Round       @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  roundMember   RoundMember @relation(fields: [roundMemberId], references: [id], onDelete: Cascade)
+}
+
+// ── Daily habit, meetings, activity, certs ──────────────────────────────────
+
+/// A timed study session ("studying now" while endedAt is null).
+model FocusSession {
+  id            String      @id @default(cuid())
+  roundMemberId String
+  startedAt     DateTime    @default(now())
+  endedAt       DateTime?
+  roundMember   RoundMember @relation(fields: [roundMemberId], references: [id], onDelete: Cascade)
+
+  @@index([roundMemberId, endedAt])
+}
+
+enum RsvpStatus {
+  GOING
+  LATE
+  CANT
+}
+
+model MeetingRsvp {
+  id            String      @id @default(cuid())
+  roundId       String
+  roundMemberId String
+  week          Int
+  status        RsvpStatus
+  updatedAt     DateTime    @updatedAt
+  round         Round       @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  roundMember   RoundMember @relation(fields: [roundMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([roundMemberId, week])
+}
+
+/// Notes and recording for one week's meeting.
+model Meeting {
+  id           String   @id @default(cuid())
+  roundId      String
+  week         Int
+  notes        String   @default("")
+  recordingUrl String?
+  updatedAt    DateTime @updatedAt
+  round        Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@unique([roundId, week])
+}
+
+model Nudge {
+  id        String      @id @default(cuid())
+  roundId   String
+  fromId    String
+  toId      String
+  createdAt DateTime    @default(now())
+  round     Round       @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  from      RoundMember @relation("nudger", fields: [fromId], references: [id], onDelete: Cascade)
+  to        RoundMember @relation("nudged", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@index([toId, createdAt])
+}
+
+/// The group's activity feed.
+model Activity {
+  id        String   @id @default(cuid())
+  roundId   String
+  icon      String
+  text      String
+  createdAt DateTime @default(now())
+  round     Round    @relation(fields: [roundId], references: [id], onDelete: Cascade)
+
+  @@index([roundId, createdAt])
+}
+
+model Cert {
+  id       String      @id @default(cuid())
+  groupId  String
+  name     String
+  week     Int?
+  examDate DateTime?   @db.Date
+  notes    String      @default("")
+  group    Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  scores   MockScore[]
+
+  @@unique([groupId, name])
+}
+
+model MockScore {
+  id            String      @id @default(cuid())
+  certId        String
+  roundMemberId String
+  score         Int
+  takenAt       DateTime    @default(now())
+  cert          Cert        @relation(fields: [certId], references: [id], onDelete: Cascade)
   roundMember   RoundMember @relation(fields: [roundMemberId], references: [id], onDelete: Cascade)
 }

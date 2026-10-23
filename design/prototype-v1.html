@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevOps Study Tracker — prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Build-status semantics: green passed, red failed, amber pending, grey skipped. */
+  :root {
+    --bg: #EEF1F5; --surface: #FFFFFF; --ink: #14213D; --sub: #5A6478; --rule: #D5DBE5;
+    --pass: #1F883D; --pass-bg: #DAFBE1; --fail: #CF222E; --fail-bg: #FFEBE9;
+    --wait: #9A6700; --wait-bg: #FFF8C5; --skip: #8C959F; --accent: #0969DA;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 "IBM Plex Sans", system-ui, sans-serif; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .mono { font-family: var(--mono); }
+  .proto-note { background: var(--ink); color: #fff; font-size: 13px; padding: 6px 16px; text-align: center; }
+
+  /* Shell: sidebar on desktop, bottom bar on phones */
+  .shell { display: grid; grid-template-columns: 232px 1fr; min-height: calc(100vh - 32px); }
+  nav.side { background: var(--ink); color: #fff; padding: 18px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .brand { padding: 4px 10px 16px; }
+  .brand b { display: block; font-size: 17px; }
+  .brand small { color: #AFC1E0; }
+  nav.side button { all: unset; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px; cursor: pointer; color: #D6DFEE; }
+  nav.side button:hover { background: rgba(255,255,255,.08); }
+  nav.side button[aria-current="page"] { background: rgba(255,255,255,.14); color: #fff; font-weight: 600; }
+  nav.side button:focus-visible { outline: 2px solid #79B8FF; }
+  nav.side .badge { margin-left: auto; background: var(--fail); color: #fff; border-radius: 99px; font-size: 12px; padding: 0 7px; }
+  nav.side .me { margin-top: auto; padding: 10px; border-top: 1px solid rgba(255,255,255,.15); font-size: 13px; color: #AFC1E0; }
+  main { padding: 22px 26px 60px; max-width: 1100px; width: 100%; }
+  nav.bottom { display: none; }
+  @media (max-width: 760px) {
+    .shell { grid-template-columns: 1fr; }
+    nav.side { display: none; }
+    main { padding: 14px 14px 90px; }
+    nav.bottom { display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; inset: auto 0 0 0; background: var(--surface); border-top: 1px solid var(--rule); z-index: 10; }
+    nav.bottom button { all: unset; text-align: center; padding: 8px 0 10px; font-size: 11px; color: var(--sub); cursor: pointer; }
+    nav.bottom button span { display: block; font-size: 18px; }
+    nav.bottom button[aria-current="page"] { color: var(--accent); font-weight: 600; }
+  }
+
+  /* Page bits */
+  .page { display: none; }
+  .page.on { display: block; }
+  h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -.01em; }
+  h2 { font-size: 16px; margin: 0 0 10px; }
+  .lede { color: var(--sub); margin: 0 0 18px; }
+  .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; }
+  .grid2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; }
+  .stack { display: grid; gap: 14px; }
+  @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+  .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+  .facts dt { color: var(--sub); font-size: 12px; }
+  .facts dd { margin: 0; font-weight: 600; }
+  @media (max-width: 520px) { .facts { grid-template-columns: 1fr 1fr; } }
+  .btn { border: 1px solid var(--rule); background: var(--surface); border-radius: 8px; padding: 7px 12px; cursor: pointer; font-weight: 600; }
+  .btn.primary { background: var(--pass); border-color: var(--pass); color: #fff; }
+  .btn.small { padding: 3px 9px; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; color: var(--sub); font-weight: 500; font-size: 12.5px; padding: 6px 8px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  td { padding: 8px; border-bottom: 1px solid #EDF0F4; white-space: nowrap; }
+  .scroll { overflow-x: auto; }
+  .num { font-family: var(--mono); text-align: right; }
+  .pill { display: inline-block; border-radius: 99px; padding: 0 8px; font-size: 12.5px; font-weight: 600; }
+  .pill.pass { background: var(--pass-bg); color: var(--pass); }
+  .pill.fail { background: var(--fail-bg); color: var(--fail); }
+  .pill.wait { background: var(--wait-bg); color: var(--wait); }
+
+  /* ── Signature: each member's week as a CI pipeline ── */
+  .pipes { display: grid; gap: 10px; }
+  .pipe { display: grid; grid-template-columns: 150px 1fr 130px; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); }
+  .pipe .who b { display: block; }
+  .pipe .who small { color: var(--sub); font-size: 12.5px; }
+  .stages { display: grid; grid-template-columns: repeat(5, 1fr); align-items: center; min-width: 0; }
+  .stage { position: relative; display: grid; place-items: center; }
+  .stage + .stage::before { content: ""; position: absolute; top: 50%; right: 50%; width: 100%; height: 2px; background: var(--rule); z-index: 0; }
+  .stage .dot { position: relative; z-index: 1; }
+  .pipe.head { border: 0; background: none; padding: 0 12px; }
+  .pipe.head .stages span { text-align: center; font-size: 12px; color: var(--sub); line-height: 1.2; }
+  .dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; flex: none; color: #fff; font-size: 12px; font-weight: 700; }
+  .dot.pass { background: var(--pass); }
+  .dot.fail { background: var(--fail); }
+  .dot.wait { background: #fff; border: 2px solid var(--wait); color: var(--wait); }
+  .dot.wait::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--wait); animation: blink 1.4s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: .2; } }
+  @media (prefers-reduced-motion: reduce) { .dot.wait::after { animation: none; } }
+  .pipe .outcome { font-family: var(--mono); font-size: 13px; text-align: right; }
+  .pipe .outcome.fail { color: var(--fail); }
+  @media (max-width: 760px) {
+    .pipe { grid-template-columns: 1fr auto; }
+    .stages { grid-column: 1 / -1; order: 3; }
+    .pipe.head > div:not(.stages) { display: none; }
+  }
+
+  /* Charts */
+  .bars { display: grid; gap: 8px; }
+  .bars .row { display: grid; grid-template-columns: 90px 1fr 48px; gap: 8px; align-items: center; font-size: 13px; }
+  .bars .track { height: 10px; background: #EDF0F4; border-radius: 99px; position: relative; overflow: hidden; }
+  .bars .track i { position: absolute; inset: 0 auto 0 0; background: var(--pass); border-radius: 99px; }
+  .bars .target { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); }
+  .cols { display: flex; align-items: flex-end; gap: 10px; height: 120px; padding-top: 10px; }
+  .cols div { flex: 1; display: grid; justify-items: center; gap: 4px; font-size: 12px; color: var(--sub); }
+  .cols i { width: 100%; max-width: 46px; background: var(--accent); border-radius: 4px 4px 0 0; }
+
+  /* Study log */
+  form.addlog { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  form.addlog label { display: grid; gap: 4px; font-size: 13px; color: var(--sub); }
+  form.addlog input, form.addlog select, form.addlog textarea { border: 1px solid var(--rule); border-radius: 8px; padding: 7px 9px; background: #fff; color: var(--ink); }
+  form.addlog .wide { grid-column: 1 / -1; }
+  @media (max-width: 640px) { form.addlog { grid-template-columns: 1fr 1fr; } }
+  .loglist { display: grid; gap: 8px; }
+  .log { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); }
+  .log.noproof { border-color: #F5B5B9; background: #FFF6F6; }
+  .log .shot { width: 64px; height: 44px; border-radius: 6px; background: repeating-linear-gradient(0deg, #0d1117 0 6px, #161b22 6px 7px); color: #7ee787; font: 9px/1.2 var(--mono); padding: 4px; overflow: hidden; }
+  .log .shot.none { background: #fff; border: 1px dashed var(--fail); color: var(--fail); display: grid; place-items: center; font-family: inherit; font-size: 11px; }
+  .log .what small { display: block; color: var(--sub); }
+  .log .id { font-family: var(--mono); color: var(--sub); font-size: 12px; }
+
+  /* Scoreboard */
+  .sb td.chk { text-align: center; }
+  .sb input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--pass); }
+  .sb .fine { font-family: var(--mono); font-weight: 600; }
+  .sb .fine.has { color: var(--fail); }
+  .weekpick { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .weekpick button[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+  /* Progress */
+  .course { border: 1px solid var(--rule); border-radius: 10px; background: var(--surface); margin-bottom: 8px; }
+  .course summary { display: grid; grid-template-columns: 1fr 140px 44px; gap: 10px; align-items: center; padding: 10px 12px; cursor: pointer; list-style: none; }
+  .course summary::-webkit-details-marker { display: none; }
+  .meter { height: 8px; background: #EDF0F4; border-radius: 99px; overflow: hidden; }
+  .meter i { display: block; height: 100%; background: var(--pass); }
+  .mods { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; padding: 0 12px 12px; }
+  .mod { all: unset; display: flex; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; border: 1px solid #EDF0F4; cursor: pointer; font-size: 13.5px; }
+  .mod:focus-visible { outline: 2px solid var(--accent); }
+  .mod .st { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--skip); flex: none; }
+  .mod[data-s="IN_PROGRESS"] .st { border-color: var(--wait); background: radial-gradient(circle, var(--wait) 0 40%, transparent 42%); }
+  .mod[data-s="DONE"] .st { border-color: var(--pass); background: var(--pass); }
+  .here { padding: 12px 14px; border-left: 4px solid var(--accent); background: #DDF4FF; border-radius: 6px; margin-bottom: 14px; }
+
+  /* Syllabus */
+  .weeks { display: grid; gap: 6px; }
+  .wk { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center; padding: 8px 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); }
+  .wk.now { border-color: var(--accent); box-shadow: 0 0 0 2px #B6E3FF; }
+  .wk.cert { background: #FFF8C5; border-color: #E8D27B; }
+  .wk.done { color: var(--sub); }
+  .wk .n { font-family: var(--mono); font-size: 13px; color: var(--sub); }
+
+  .toast { position: fixed; left: 50%; bottom: 80px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }
+  .toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="proto-note">Prototype with sample data. Clicks work, nothing is saved.</div>
+<div class="shell">
+  <nav class="side" aria-label="Main">
+    <div class="brand"><b>DevOps Study Tracker</b><small>Round 1 · Week 2 of 40</small></div>
+    <button data-go="dash">📊 Dashboard</button>
+    <button data-go="log">📝 Study log <span class="badge" id="verifyBadge">2</span></button>
+    <button data-go="score">✅ Scoreboard</button>
+    <button data-go="fines">💰 Fines & pool</button>
+    <button data-go="progress">📈 My progress</button>
+    <button data-go="syllabus">📅 Syllabus</button>
+    <button data-go="archive">🗄️ Archive</button>
+    <button data-go="settings">⚙️ Settings</button>
+    <div class="me">Signed in as Michael Akande (admin)</div>
+  </nav>
+
+  <main>
+    <!-- ═══ Dashboard ═══ -->
+    <section class="page" id="p-dash">
+      <h1>Week 2: DevOps Prerequisite, part 2</h1>
+      <p class="lede">Sun 18 – Sat 24 Oct. Networking basics, application basics (Java build &amp; packaging), databases.</p>
+      <div class="grid2">
+        <div class="stack">
+          <div class="card">
+            <h2>This week's pipelines</h2>
+            <div class="pipes" id="pipes"></div>
+          </div>
+        </div>
+        <div class="stack">
+          <div class="card">
+            <h2>Your week</h2>
+            <dl class="facts" style="grid-template-columns:1fr 1fr">
+              <div><dt>Meeting lead</dt><dd>Chisom</dd></div>
+              <div><dt>You review</dt><dd>Chisom</dd></div>
+              <div><dt>Reviewed by</dt><dd>Timi</dd></div>
+              <div><dt>Deliverable</dt><dd>Push your network lab notes</dd></div>
+              <div><dt>Verified</dt><dd class="mono" id="myHours">4.5 / 6h</dd></div>
+              <div><dt>To the finish</dt><dd class="mono">267 days</dd></div>
+            </dl>
+            <p style="margin:12px 0 0"><button class="btn primary" data-go="log">Log study</button> <button class="btn" data-go="log" id="verifyBtn">Verify 2 logs</button></p>
+          </div>
+          <div class="card">
+            <h2>Verified hours this week</h2>
+            <div class="bars" id="bars"></div>
+            <p style="color:var(--sub);font-size:12.5px;margin:8px 0 0">The line marks the 6-hour minimum.</p>
+          </div>
+          <div class="card">
+            <h2>Group hours per week</h2>
+            <div class="cols" id="cols"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card scroll" style="margin-top:14px">
+        <h2>Leaderboard</h2>
+        <table id="board"></table>
+      </div>
+    </section>
+
+    <!-- ═══ Study log ═══ -->
+    <section class="page" id="p-log">
+      <h1>Study log</h1>
+      <p class="lede">Hours only count once someone else verifies your screenshot.</p>
+      <div class="stack">
+        <div class="card">
+          <h2>Log a session</h2>
+          <form class="addlog" id="addlog">
+            <label>Date<input type="date" value="2026-10-23" max="2026-10-23"></label>
+            <label>Hours<input id="fHours" type="number" step="0.25" min="0.25" max="16" value="1.5"></label>
+            <label>Labs done<input id="fLabs" type="number" min="0" value="2"></label>
+            <label>Course / module<select id="fMod"></select></label>
+            <label class="wide">What I covered<input id="fWhat" value="Maven build lifecycle, packaged a sample Java app"></label>
+            <label class="wide">Screenshot (your terminal or lab)<input id="fShot" type="file" accept="image/*"></label>
+            <div class="wide"><button class="btn primary" type="submit">Add log</button></div>
+          </form>
+        </div>
+        <div class="card">
+          <h2>Needs your verification (<span id="qCount">2</span>)</h2>
+          <div class="loglist" id="queue"></div>
+        </div>
+        <div class="card">
+          <h2>This week's logs</h2>
+          <div class="loglist" id="logs"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ Scoreboard ═══ -->
+    <section class="page" id="p-score">
+      <h1>Weekly scoreboard</h1>
+      <p class="lede">Filled in after the Saturday meeting. Fines calculate as you tick. Only the assigned reviewer can sign off a deliverable.</p>
+      <div class="weekpick" id="weekpick"></div>
+      <div class="card scroll"><table class="sb" id="sb"></table></div>
+      <p style="color:var(--sub);font-size:13px">Missed session (absent or didn't present): ₦5,000 × 4 members, charged once. Late 15+ minutes: ₦2,000, even with a waiver. A waiver requested 48 hours ahead cancels the missed-session fine once per calendar month.</p>
+    </section>
+
+    <!-- ═══ Fines ═══ -->
+    <section class="page" id="p-fines">
+      <h1>Fines and pool</h1>
+      <p class="lede">Outstanding = fines + carried over − paid.</p>
+      <div class="grid2">
+        <div class="card scroll"><table id="finesTable"></table></div>
+        <div class="stack">
+          <div class="card"><h2>Pool balance</h2><p class="mono" style="font-size:28px;margin:0" id="pool">₦10,000</p><p style="color:var(--sub);margin:4px 0 0">Idea from the sheet: spend it on exam vouchers.</p></div>
+          <div class="card"><h2>Record a payment</h2>
+            <form id="payForm" style="display:grid;gap:8px"><select id="payWho"></select><input id="payAmt" class="mono" type="number" value="5000" step="500" style="border:1px solid var(--rule);border-radius:8px;padding:7px 9px"><button class="btn primary">Record payment</button></form>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ Progress ═══ -->
+    <section class="page" id="p-progress">
+      <h1>My progress</h1>
+      <p class="lede">Tap a module to cycle: not started, in progress, done.</p>
+      <div class="here" id="here"></div>
+      <p><b>KodeKloud DevOps Engineer path:</b> <span class="mono" id="overall"></span></p>
+      <div id="courses"></div>
+    </section>
+
+    <!-- ═══ Syllabus ═══ -->
+    <section class="page" id="p-syllabus">
+      <h1>Syllabus</h1>
+      <p class="lede">40 weeks to 17 Jul 2027. Cert weeks are highlighted. Sample plan until the real syllabus is imported.</p>
+      <div class="weeks" id="weeks"></div>
+    </section>
+
+    <!-- ═══ Archive ═══ -->
+    <section class="page" id="p-archive">
+      <h1>Archive</h1>
+      <p class="lede">Finished rounds stay readable. Starting a new round copies the members and syllabus and can carry unpaid fines over.</p>
+      <div class="card"><h2>Round 1 · in progress</h2><p style="margin:0;color:var(--sub)">Started Sun 11 Oct 2026. Nothing archived yet.</p></div>
+      <p style="margin-top:14px"><button class="btn">Start round 2</button></p>
+    </section>
+
+    <!-- ═══ Settings ═══ -->
+    <section class="page" id="p-settings">
+      <h1>Settings</h1>
+      <div class="grid2">
+        <div class="card scroll"><h2>Members</h2>
+          <table><tr><th>Name</th><th>Google email</th><th>Joined</th><th>Admin</th></tr>
+            <tr><td>Michael Akande</td><td>waleboluwatife@…</td><td>Week 1</td><td>Yes</td></tr>
+            <tr><td>Chisom</td><td>chisom@…</td><td>Week 1</td><td></td></tr>
+            <tr><td>OBA (Tumininu)</td><td>tumininu…</td><td>Week 1</td><td></td></tr>
+            <tr><td>Timi</td><td><span class="pill wait">Not invited yet</span></td><td>Week 1</td><td></td></tr>
+          </table>
+          <p style="margin:10px 0 0"><button class="btn">Add a member</button></p>
+        </div>
+        <div class="card"><h2>Group rules</h2>
+          <dl class="facts" style="grid-template-columns:1fr 1fr">
+            <div><dt>Missed session</dt><dd class="mono">₦5,000 × members</dd></div>
+            <div><dt>Late 15+ min</dt><dd class="mono">₦2,000</dd></div>
+            <div><dt>Minimum hours</dt><dd class="mono">6 / week</dd></div>
+            <div><dt>Short-hours fine</dt><dd>Off</dd></div>
+          </dl>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+<nav class="bottom" aria-label="Main">
+  <button data-go="dash"><span>📊</span>Home</button>
+  <button data-go="log"><span>📝</span>Log</button>
+  <button data-go="score"><span>✅</span>Score</button>
+  <button data-go="fines"><span>💰</span>Fines</button>
+  <button data-go="progress"><span>📈</span>Progress</button>
+</nav>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+// ── Sample data (Week 2 of Round 1, real names, real rules) ─────────────────
+const M = ['Michael', 'Chisom', 'OBA', 'Timi'];
+const FULL = { Michael: 'Michael Akande', Chisom: 'Chisom', OBA: 'OBA (Tumininu)', Timi: 'Timi' };
+const ME = 'Michael';
+const naira = n => (n < 0 ? '−' : '') + '₦' + Math.abs(n).toLocaleString('en-NG');
+const toast = (t) => { const e = document.getElementById('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 1800); };
+
+// Logs: verified-by null = waiting; shot null = no proof.
+let logs = [
+  { id: 'a1f3', who: 'Michael', day: 'Mon 19', h: 2, labs: 3, what: 'Networking basics: switching, routing, DNS', mod: 'DevOps Prerequisite › Networking basics', shot: 'ip addr show\nping -c 3 8.8.8.8', by: 'Timi' },
+  { id: 'b72c', who: 'Michael', day: 'Wed 21', h: 2.5, labs: 2, what: 'Java build & packaging with Maven', mod: 'DevOps Prerequisite › Application basics', shot: 'mvn package\nBUILD SUCCESS', by: 'Chisom' },
+  { id: 'c9d0', who: 'Chisom', day: 'Tue 20', h: 3.5, labs: 4, what: 'Vagrant + VirtualBox networking labs', mod: 'DevOps Prerequisite › Vagrant', shot: 'vagrant up\nmachine running', by: 'Michael' },
+  { id: 'd114', who: 'Chisom', day: 'Thu 22', h: 3, labs: 2, what: 'Databases: MySQL & MongoDB basics', mod: 'DevOps Prerequisite › Database basics', shot: 'mysql -u root\nshow databases;', by: 'OBA' },
+  { id: 'e5aa', who: 'OBA', day: 'Wed 21', h: 2, labs: 1, what: 'YAML and JSON exercises', mod: 'DevOps Prerequisite › YAML', shot: 'yamllint app.yml\nok', by: 'Chisom' },
+  { id: 'f80e', who: 'OBA', day: 'Fri 23', h: 2.5, labs: 3, what: 'Apache web server lab', mod: 'DevOps Prerequisite › Apache web server', shot: 'systemctl status httpd\nactive (running)', by: null },
+  { id: 'a0b7', who: 'Timi', day: 'Thu 22', h: 3, labs: 2, what: 'SSL & TLS basics, generated certs', mod: 'DevOps Prerequisite › SSL & TLS basics', shot: 'openssl req -new\nwriting new key', by: null },
+  { id: '9c21', who: 'Timi', day: 'Fri 23', h: 1.5, labs: 0, what: 'Watched IPs and ports videos', mod: 'DevOps Prerequisite › IPs and ports', shot: null, by: null },
+];
+const verified = l => l.shot && l.by && l.by !== l.who;
+const hours = who => logs.filter(l => l.who === who && verified(l)).reduce((s, l) => s + l.h, 0);
+
+// Week 2 rotation (spec rule 8): reviewer of each member, and the lead.
+const REVIEWER = { Michael: 'Timi', Chisom: 'Michael', OBA: 'Chisom', Timi: 'OBA' };
+
+// Scoreboard: week 1 finished, week 2 meeting is on Saturday.
+const blank = () => ({ att: false, late: false, pres: false, gh: false, li: false, waiver: false, signed: false });
+let scores = {
+  1: { Michael: { att: true, late: false, pres: true, gh: true, li: true, waiver: false, signed: true },
+       Chisom: { att: true, late: true, pres: true, gh: true, li: false, waiver: false, signed: true },
+       OBA: { att: false, late: false, pres: false, gh: true, li: false, waiver: true, signed: true },
+       Timi: { att: true, late: false, pres: false, gh: false, li: false, waiver: false, signed: false } },
+  2: Object.fromEntries(M.map(m => [m, blank()])),
+};
+let payments = { Michael: 0, Chisom: 0, OBA: 0, Timi: 10000 };
+const carried = { Michael: 15000, Chisom: 0, OBA: 0, Timi: 0 };
+
+// Fines with the spec rules: missed once, late flat, first waiver per month (both weeks are October).
+function finesFor(week) {
+  const used = new Set(); const out = {};
+  for (let w = 1; w <= week; w++) for (const m of M) {
+    const s = scores[w][m]; let missed = 0, late = s.late ? 2000 : 0, waived = false;
+    if (w === 2 && !s.att && !s.pres && !s.late && !s.waiver && week === 2 && !s.touched) { if (w === week) out[m] = { missed: 0, late: 0, waived: false, total: 0, pending: true }; continue; }
+    if (!s.att || !s.pres) {
+      if (s.waiver && !used.has(m)) { waived = true; used.add(m); } else missed = 5000 * M.length;
+    }
+    if (w === week) out[m] = { missed, late, waived, total: missed + late };
+  }
+  return out;
+}
+const totalFined = m => [1, 2].reduce((s, w) => s + (finesFor(w)[m]?.total || 0), 0);
+
+// ── Dashboard ───────────────────────────────────────────────────────────────
+function renderDash() {
+  const st = (cls, title) => `<div class="stage" title="${title}"><span class="dot ${cls}" aria-label="${title}: ${cls === 'pass' ? 'passed' : cls === 'fail' ? 'failed' : 'pending'}">${cls === 'pass' ? '✓' : cls === 'fail' ? '✕' : ''}</span></div>`;
+  const head = `<div class="pipe head"><div></div><div class="stages"><span>Study 6h</span><span>Presented</span><span>GitHub push</span><span>LinkedIn</span><span>Peer review</span></div><div></div></div>`;
+  document.getElementById('pipes').innerHTML = head + M.map(m => {
+    const h = hours(m); const waiting = logs.filter(l => l.who === m && l.shot && !l.by).length;
+    const study = h >= 6 ? 'pass' : 'wait';
+    const s = scores[2][m];
+    return `<div class="pipe"><div class="who"><b>${FULL[m]}</b><small>reviewed by ${REVIEWER[m]}</small></div>
+      <div class="stages">${st(study, `Study: ${h} of 6 verified hours`)}${st('wait', 'Presented at Saturday meeting')}${st(s.gh ? 'pass' : 'wait', 'GitHub push')}${st(s.li ? 'pass' : 'wait', 'LinkedIn post')}${st(s.signed ? 'pass' : 'wait', 'Peer review sign-off')}</div>
+      <div class="outcome">${h >= 6 ? '<span class="pill pass">On track</span>' : `<span class="pill wait">${6 - h}h short</span>`}${waiting ? `<br><small style="color:var(--sub)">${waiting} awaiting check</small>` : ''}</div></div>`;
+  }).join('');
+  const rows = M.map(m => ({ m, h: hours(m) + { Michael: 7, Chisom: 6.5, OBA: 4, Timi: 5 }[m], labs: { Michael: 14, Chisom: 12, OBA: 6, Timi: 5 }[m], meet: scores[1][m].att ? 1 : 0, gh: scores[1][m].gh ? 1 : 0, li: scores[1][m].li ? 1 : 0, owed: totalFined(m) + carried[m] - payments[m], perfect: m === 'Michael' ? 1 : 0, streak: { Michael: 2, Chisom: 2, OBA: 0, Timi: 0 }[m] }))
+    .sort((a, b) => b.h - a.h);
+  document.getElementById('board').innerHTML = `<tr><th>#</th><th>Member</th><th class="num">Hours</th><th class="num">Labs</th><th class="num">Meetings</th><th class="num">GitHub</th><th class="num">LinkedIn</th><th class="num">Perfect</th><th class="num">Streak</th><th class="num">Owes</th></tr>` +
+    rows.map((r, i) => `<tr><td>${i + 1}</td><td><b>${FULL[r.m]}</b></td><td class="num">${r.h}</td><td class="num">${r.labs}</td><td class="num">${r.meet}</td><td class="num">${r.gh}</td><td class="num">${r.li}</td><td class="num">${r.perfect}</td><td class="num">${r.streak ? '🔥 ' + r.streak : 0}</td><td class="num" style="color:${r.owed > 0 ? 'var(--fail)' : 'inherit'}">${naira(r.owed)}</td></tr>`).join('');
+  document.getElementById('bars').innerHTML = M.map(m => { const h = hours(m); return `<div class="row"><span>${m}</span><span class="track"><i style="width:${Math.min(100, h / 8 * 100)}%;background:${h >= 6 ? 'var(--pass)' : 'var(--wait)'}"></i><span class="target" style="left:75%"></span></span><span class="mono">${h}h</span></div>`; }).join('');
+  const wk = [22.5, M.reduce((s, m) => s + hours(m), 0)];
+  document.getElementById('cols').innerHTML = wk.map((h, i) => `<div><span class="mono">${h}h</span><i style="height:${h / 26 * 90}px"></i>W${i + 1}</div>`).join('');
+  document.getElementById('myHours').textContent = `${hours(ME)} / 6h`;
+  const q = logs.filter(l => l.who !== ME && l.shot && !l.by).length;
+  document.getElementById('verifyBadge').textContent = q; document.getElementById('verifyBadge').style.display = q ? '' : 'none';
+  document.getElementById('verifyBtn').textContent = q ? `Verify ${q} log${q > 1 ? 's' : ''}` : 'Nothing to verify';
+}
+
+// ── Study log ───────────────────────────────────────────────────────────────
+function logCard(l, withVerify) {
+  const shot = l.shot ? `<div class="shot">$ ${l.shot.replace('\n', '<br>')}</div>` : '<div class="shot none">No proof</div>';
+  const status = verified(l) ? `<span class="pill pass">Verified by ${l.by}</span>` : l.shot ? '<span class="pill wait">Awaiting check</span>' : '<span class="pill fail">Missing screenshot</span>';
+  return `<div class="log${l.shot ? '' : ' noproof'}">${shot}<div class="what"><b>${FULL[l.who]}</b> · ${l.day} · <span class="mono">${l.h}h</span> · ${l.labs} labs<small>${l.mod}. ${l.what}</small></div>
+    <div style="text-align:right">${withVerify ? `<button class="btn small primary" data-verify="${l.id}">Verify</button>` : status}<br><span class="id">#${l.id}</span></div></div>`;
+}
+function renderLog() {
+  const q = logs.filter(l => l.who !== ME && l.shot && !l.by);
+  document.getElementById('qCount').textContent = q.length;
+  document.getElementById('queue').innerHTML = q.length ? q.map(l => logCard(l, true)).join('') : '<p style="color:var(--sub);margin:0">Nothing waiting for you.</p>';
+  document.getElementById('logs').innerHTML = [...logs].reverse().map(l => logCard(l, false)).join('');
+}
+document.addEventListener('click', e => {
+  const v = e.target.closest('[data-verify]'); if (!v) return;
+  const l = logs.find(x => x.id === v.dataset.verify); l.by = ME;
+  toast(`Verified ${l.who}'s ${l.h}h`); renderAll();
+});
+document.getElementById('addlog').addEventListener('submit', e => {
+  e.preventDefault();
+  const hasShot = document.getElementById('fShot').files.length > 0;
+  logs.push({ id: Math.random().toString(16).slice(2, 6), who: ME, day: 'Fri 23', h: +document.getElementById('fHours').value, labs: +document.getElementById('fLabs').value, what: document.getElementById('fWhat').value, mod: document.getElementById('fMod').value, shot: hasShot ? 'screenshot.png\nuploaded' : null, by: null });
+  toast(hasShot ? 'Logged. Waiting for someone to verify it.' : 'Logged without proof. Add a screenshot so it counts.'); renderAll();
+});
+
+// ── Scoreboard ──────────────────────────────────────────────────────────────
+let sbWeek = 1;
+function renderScore() {
+  document.getElementById('weekpick').innerHTML = [1, 2].map(w => `<button class="btn" aria-pressed="${w === sbWeek}" data-week="${w}">Week ${w}${w === 2 ? ' (this week)' : ''}</button>`).join('');
+  const f = finesFor(sbWeek);
+  const box = (m, k) => `<td class="chk"><input type="checkbox" data-m="${m}" data-k="${k}" ${scores[sbWeek][m][k] ? 'checked' : ''} aria-label="${k} ${m}"></td>`;
+  document.getElementById('sb').innerHTML = `<tr><th>Member</th><th>Attended</th><th>Late 15+</th><th>Presented</th><th>GitHub</th><th>LinkedIn</th><th>Waiver 48h</th><th>Review sign-off</th><th class="num">Fine</th></tr>` +
+    M.map(m => { const x = f[m]; const sign = scores[sbWeek][m].signed;
+      return `<tr><td><b>${FULL[m]}</b></td>${box(m, 'att')}${box(m, 'late')}${box(m, 'pres')}${box(m, 'gh')}${box(m, 'li')}${box(m, 'waiver')}
+      <td>${sign ? `<span class="pill pass">✓ ${REVIEWER[m]}</span>` : REVIEWER[m] === ME ? `<button class="btn small" data-sign="${m}">Sign off</button>` : `<span class="pill wait">${REVIEWER[m]} to sign</span>`}</td>
+      <td class="num fine ${x.total ? 'has' : ''}">${x.pending ? '<span style="color:var(--sub)">Saturday</span>' : x.total ? naira(x.total) + (x.waived ? ' <small>(waived miss)</small>' : '') : x.waived ? '<small>waived</small>' : '₦0'}</td></tr>`; }).join('');
+}
+document.addEventListener('change', e => {
+  const c = e.target.closest('[data-k]'); if (!c) return;
+  scores[sbWeek][c.dataset.m][c.dataset.k] = c.checked; scores[sbWeek][c.dataset.m].touched = true; renderAll();
+});
+document.addEventListener('click', e => {
+  const w = e.target.closest('[data-week]'); if (w) { sbWeek = +w.dataset.week; renderScore(); }
+  const s = e.target.closest('[data-sign]'); if (s) { scores[sbWeek][s.dataset.sign].signed = true; toast(`Signed off ${s.dataset.sign}'s deliverable`); renderAll(); }
+});
+
+// ── Fines ───────────────────────────────────────────────────────────────────
+function renderFines() {
+  document.getElementById('finesTable').innerHTML = `<tr><th>Member</th><th class="num">Fined</th><th class="num">Carried over</th><th class="num">Paid</th><th class="num">Outstanding</th><th>Waivers in Oct</th></tr>` +
+    M.map(m => { const fined = totalFined(m); const out = fined + carried[m] - payments[m]; const w = scores[1][m].waiver && (!scores[1][m].att || !scores[1][m].pres) ? 1 : 0;
+      return `<tr><td><b>${FULL[m]}</b></td><td class="num">${naira(fined)}</td><td class="num">${naira(carried[m])}</td><td class="num">${naira(payments[m])}</td><td class="num" style="font-weight:600;color:${out > 0 ? 'var(--fail)' : 'var(--pass)'}">${naira(out)}</td><td>${w} of 1 used</td></tr>`; }).join('');
+  document.getElementById('pool').textContent = naira(Object.values(payments).reduce((a, b) => a + b, 0));
+  document.getElementById('payWho').innerHTML = M.map(m => `<option>${m}</option>`).join('');
+}
+document.getElementById('payForm').addEventListener('submit', e => {
+  e.preventDefault(); const m = document.getElementById('payWho').value; const a = +document.getElementById('payAmt').value;
+  payments[m] += a; toast(`Recorded ${naira(a)} from ${m}`); renderAll();
+});
+
+// ── Progress ────────────────────────────────────────────────────────────────
+const COURSES = [
+  ['12 Factor App', 'Codebase|Dependencies|Config|Backing services|Build, release and run|Processes|Port binding|Concurrency|Disposability|Dev/prod parity|Logs|Admin processes'],
+  ['DevOps Prerequisite', 'Linux basics|VirtualBox networking|Vagrant|Networking basics|Application basics (Java build & packaging)|Programming basics|Database basics|Git|Apache web server|IPs and ports|SSL & TLS basics|YAML'],
+  ['Fundamentals of DevOps', 'Culture considerations|Values considerations|Crossing team functions|LEAN considerations|Collaboration and information radiation|Technology patterns|Value of DevOps'],
+  ['Linux for Beginners', 'Linux shell|Kernel|Runlevels|File types|Package management|vi editor|Networking|DNS|SSH & SCP|iptables|systemd|NFS|LVM'],
+  ['Shell Scripts for Beginners', 'Shebang|Variables|Command line arguments|Arithmetic operations|Loops|E-commerce application project'],
+  ['Python Basics', 'Python basics|Making decisions|Loops|Logic and bit operations|Lists|Functions|Tuples & dictionaries|Mock exams'],
+  ['Git for Beginners', 'Fetching and pulling|Merge conflicts|Fork|Rebasing|Interactive rebasing|Cherry picking|Resetting and reverting|Stashing|Reflog'],
+  ['Jenkins for Beginners', 'Jenkins basics|Setup and interface|Extending Jenkins|Jenkins pipelines|Automation and security'],
+  ['Docker for Absolute Beginners', 'Containers|Images|Volumes|Networking|Container orchestration'],
+  ['Kubernetes for Beginners', 'Setting up local environment|Pods|ReplicaSets|Deployments|Services'],
+  ['Terraform for Beginners', 'Terraform basics|Terraform state|Terraform with AWS|Remote state|Provisioners|Import|Tainting resources and debugging|Modules|Functions and conditional expressions'],
+  ['Helm for Beginners', 'Helm components|Helm charts|Pipelines|Conditionals|With blocks|Ranges|Named templates|Chart hooks|Packaging and signing charts'],
+].map(([name, mods]) => ({ name, mods: mods.split('|') }));
+const prog = {};
+COURSES[0].mods.forEach(m => prog['12 Factor App|' + m] = 'DONE');
+['Linux basics', 'VirtualBox networking', 'Vagrant', 'Networking basics'].forEach(m => prog['DevOps Prerequisite|' + m] = 'DONE');
+prog['DevOps Prerequisite|Application basics (Java build & packaging)'] = 'IN_PROGRESS';
+const NEXT = { undefined: 'IN_PROGRESS', NOT_STARTED: 'IN_PROGRESS', IN_PROGRESS: 'DONE', DONE: 'NOT_STARTED' };
+let openCourse = 'DevOps Prerequisite';
+function renderProgress() {
+  let done = 0, total = 0, here = null;
+  document.getElementById('courses').innerHTML = COURSES.map(c => {
+    const d = c.mods.filter(m => prog[c.name + '|' + m] === 'DONE').length; done += d; total += c.mods.length;
+    if (!here) { const ip = c.mods.find(m => prog[c.name + '|' + m] === 'IN_PROGRESS'); if (ip) here = [c.name, ip]; }
+    const pct = Math.round(d / c.mods.length * 100);
+    return `<details class="course" ${c.name === openCourse ? 'open' : ''} data-course="${c.name}"><summary><b>${c.name}</b><span class="meter"><i style="width:${pct}%"></i></span><span class="mono">${pct}%</span></summary>
+      <div class="mods">${c.mods.map(m => `<button class="mod" data-mod="${c.name}|${m}" data-s="${prog[c.name + '|' + m] || 'NOT_STARTED'}"><span class="st"></span>${m}</button>`).join('')}</div></details>`;
+  }).join('');
+  if (!here) for (const c of COURSES) { const m = c.mods.find(x => prog[c.name + '|' + x] !== 'DONE'); if (m) { here = [c.name, m]; break; } }
+  document.getElementById('here').innerHTML = here ? `<b>You are here:</b> ${here[0]} › ${here[1]}` : '<b>Path complete.</b> Time for the cert weeks.';
+  document.getElementById('overall').textContent = `${Math.round(done / total * 100)}% (${done} of ${total} modules)`;
+  document.getElementById('fMod').innerHTML = COURSES.slice(1, 2).flatMap(c => c.mods.map(m => `<option>${c.name} › ${m}</option>`)).join('');
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-mod]'); if (!b) return;
+  prog[b.dataset.mod] = NEXT[prog[b.dataset.mod]]; openCourse = b.dataset.mod.split('|')[0]; renderProgress();
+});
+
+// ── Syllabus (sample plan until the real one is imported) ───────────────────
+const PLAN = ['12 Factor App + DevOps Prerequisite, part 1', 'DevOps Prerequisite, part 2', 'Fundamentals of DevOps', 'Linux for Beginners, part 1', 'Linux for Beginners, part 2', 'Shell scripting', 'Python basics', 'Git for Beginners', 'Cert week: GitHub Foundations', 'Jenkins, part 1', 'Jenkins, part 2', 'Docker, part 1', 'Docker, part 2', 'Cert week: AWS Cloud Practitioner', 'Kubernetes, part 1', 'Kubernetes, part 2', 'GitHub Actions', 'Ansible basics', 'Terraform, part 1', 'Terraform, part 2', 'Cert week: Terraform Associate', 'Helm', 'Istio service mesh', 'GitOps with ArgoCD, part 1', 'GitOps with ArgoCD, part 2', 'Prometheus, part 1', 'Prometheus, part 2', 'Cert week: Prometheus Certified Associate', 'CKA: core concepts & scheduling', 'CKA: lifecycle & maintenance', 'CKA: security & storage', 'CKA: networking & install', 'CKA: troubleshooting', 'Cert week: CKA', 'AWS Solutions Architect, part 1', 'AWS Solutions Architect, part 2', 'Cert week: AWS SAA', 'CKAD prep', 'DevOps interview preparation', 'Cert week: CKAD + round retro'];
+function renderSyllabus() {
+  const start = new Date('2026-10-11T00:00:00Z');
+  document.getElementById('weeks').innerHTML = PLAN.map((t, i) => {
+    const s = new Date(start.getTime() + i * 7 * 864e5); const d = s.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+    const cert = t.startsWith('Cert week');
+    return `<div class="wk${i === 1 ? ' now' : ''}${cert ? ' cert' : ''}${i === 0 ? ' done' : ''}"><span class="n">Week ${i + 1}</span><span>${cert ? '🏅 ' : ''}${t}</span><span style="font-size:12.5px;color:var(--sub)">${i === 0 ? '✓ covered' : i === 1 ? '<b style="color:var(--accent)">This week</b>' : d}</span></div>`;
+  }).join('');
+}
+
+// ── Navigation ──────────────────────────────────────────────────────────────
+function go(p) {
+  document.querySelectorAll('.page').forEach(x => x.classList.toggle('on', x.id === 'p-' + p));
+  document.querySelectorAll('[data-go]').forEach(b => b.closest('nav') && (b.getAttribute('data-go') === p ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current')));
+  window.scrollTo(0, 0);
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go); });
+function renderAll() { renderDash(); renderLog(); renderScore(); renderFines(); renderProgress(); }
+renderAll(); renderSyllabus(); go('dash');
+</script>
+</body>
+</html>
