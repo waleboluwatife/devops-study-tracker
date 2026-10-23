@@ -7,6 +7,7 @@ export interface ProgressCourse {
   name: string;
   kind: 'PATH' | 'ADD_ON';
   order: number;
+  videoHours?: number | null;
   modules: { id: string; name: string; order: number }[];
 }
 

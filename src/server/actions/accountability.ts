@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { activeMembers, balance, computeFines, reviewerFor } from '@/lib/rules';
 import { prisma } from '../db';
 import { loadRoundData } from '../round-data';
-import { dbDate, getViewer, requireAdmin } from '../viewer';
+import { logActivity } from '../activity';
+import { dbDate, getViewer, requireAdmin, roundMemberNames } from '../viewer';
 import type { ActionState } from './logs';
 
 const fail = (e: unknown): ActionState => ({ error: e instanceof z.ZodError ? e.issues[0].message : (e as Error).message });
@@ -43,6 +44,12 @@ export async function saveScores(week: number, rows: unknown): Promise<ActionSta
         create: { roundId: v.round.id, roundMemberId, week, ...data },
       });
     }));
+    const d = await loadRoundData(prisma, v.round.id);
+    const fines = computeFines(d.settings, d.members, d.scores, d.logs).filter(f => f.week === week && f.total > 0);
+    const names = await roundMemberNames(v.round.id);
+    await logActivity(v.round.id, fines.length ? '⚠️' : '✅', fines.length
+      ? `Week ${week} scored. Fines: ${fines.map(f => `${names.get(f.memberId)} ₦${f.total.toLocaleString('en-NG')}`).join(', ')}`
+      : `Week ${week} scored. No fines — clean week!`);
     return done(`Week ${week} saved.`);
   } catch (e) { return fail(e); }
 }
@@ -65,6 +72,10 @@ export async function signOffReview(week: number, revieweeId: string, signedOff:
       update: data,
       create: { roundId: v.round.id, week, revieweeId, reviewerId, ...data },
     });
+    if (signedOff) {
+      const names = await roundMemberNames(v.round.id);
+      await logActivity(v.round.id, '🤝', `${names.get(v.roundMember.id)} signed off ${names.get(revieweeId)}'s week ${week} deliverable`);
+    }
     return done(signedOff ? 'Signed off ✔' : 'Sign-off removed.');
   } catch (e) { return fail(e); }
 }
@@ -89,6 +100,8 @@ export async function addPayment(_prev: ActionState, form: FormData): Promise<Ac
     const input = Money.parse(Object.fromEntries(form));
     await checkMember(v.round.id, input.roundMemberId);
     await prisma.payment.create({ data: { roundId: v.round.id, roundMemberId: input.roundMemberId, amount: input.amount, note: input.note, date: dbDate(input.date ?? new Date().toISOString().slice(0, 10)) } });
+    const names = await roundMemberNames(v.round.id);
+    await logActivity(v.round.id, '💸', `${names.get(input.roundMemberId)} paid ₦${input.amount.toLocaleString('en-NG')} into the pool`);
     return done('Payment recorded.');
   } catch (e) { return fail(e); }
 }
@@ -212,6 +225,8 @@ export async function startNewRound(_prev: ActionState, form: FormData): Promise
         }),
       });
     });
+    const fresh = await prisma.round.findFirst({ where: { groupId: v.group.id, number: old.number + 1 } });
+    if (fresh) await logActivity(fresh.id, '🚀', `Round ${old.number + 1} started on ${input.startDate}`);
     return done(`Round ${old.number + 1} started. Round ${old.number} is in the Archive.`);
   } catch (e) { return fail(e); }
 }

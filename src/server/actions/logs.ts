@@ -5,7 +5,8 @@ import { z } from 'zod';
 import { applyLogEdit, canVerify, todayIn } from '@/lib/rules';
 import { prisma } from '../db';
 import { saveScreenshot, uploadProblem } from '../storage';
-import { dbDate, getViewer, isoDate } from '../viewer';
+import { dbDate, getViewer, isoDate, roundMemberNames } from '../viewer';
+import { logActivity } from '../activity';
 
 export type ActionState = { ok?: string; error?: string };
 
@@ -51,6 +52,7 @@ export async function addLog(_prev: ActionState, form: FormData): Promise<Action
       screenshotUrl: shot ? await saveScreenshot(shot) : null,
     },
   });
+  await logActivity(v.round.id, '📝', `${v.member.displayName} logged ${parsed.data.hours}h${parsed.data.labs ? ` and ${parsed.data.labs} lab${parsed.data.labs > 1 ? 's' : ''}` : ''}${shot ? '' : ' — no screenshot yet'}`);
   revalidatePath('/', 'layout');
   return { ok: shot ? 'Logged! Waiting for someone to verify it.' : 'Logged — add a screenshot so it can be verified.' };
 }
@@ -119,6 +121,10 @@ export async function verifyLog(id: string): Promise<ActionState> {
     where: { id, verifiedById: null, screenshotUrl: { not: null } },
     data: { verifiedById: v.roundMember.id, verifiedAt: new Date() },
   });
+  if (res.count) {
+    const names = await roundMemberNames(v.round.id);
+    await logActivity(v.round.id, '✅', `${v.member.displayName} verified ${names.get(log.roundMemberId)}'s ${log.hours}h session`);
+  }
   revalidatePath('/', 'layout');
   return res.count ? { ok: 'Verified ✔' } : { error: 'Someone else just verified it.' };
 }

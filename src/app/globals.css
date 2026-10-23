@@ -1,33 +1,53 @@
 @import "tailwindcss";
 
+/* Build-status design system: green passed, red failed, amber pending,
+   blue for "you are here"; deep navy ink on a cool grey base. */
 @theme {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --color-brand-50: #ecfdf5;
-  --color-brand-100: #d1fae5;
-  --color-brand-500: #10b981;
-  --color-brand-600: #059669;
-  --color-brand-700: #047857;
-  --color-ink: #0f172a;
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  --color-ink: #14213D;
+  --color-sub: #5A6478;
+  --color-rule: #D5DBE5;
+  --color-base: #EEF1F5;
+  --color-pass: #1F883D;
+  --color-pass-bg: #DAFBE1;
+  --color-fail: #CF222E;
+  --color-fail-bg: #FFEBE9;
+  --color-wait: #9A6700;
+  --color-wait-bg: #FFF8C5;
+  --color-accent: #0969DA;
+  --color-accent-bg: #DDF4FF;
+  /* Older class names used across the pages, mapped onto the system. */
+  --color-brand-50: #DAFBE1;
+  --color-brand-100: #ACEEBB;
+  --color-brand-500: #2DA44E;
+  --color-brand-600: #1F883D;
+  --color-brand-700: #1A7F37;
 }
 
-body {
-  background: #f1f5f9;
-  color: var(--color-ink);
-}
+body { background: var(--color-base); color: var(--color-ink); }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
-/* Shared building blocks */
 @layer components {
-  .card { @apply rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5; }
-  .card-title { @apply mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500; }
-  .btn { @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50; }
-  .btn-primary { @apply bg-brand-600 text-white hover:bg-brand-700; }
-  .btn-ghost { @apply border border-slate-300 bg-white text-slate-700 hover:bg-slate-50; }
-  .btn-danger { @apply border border-rose-200 bg-white text-rose-600 hover:bg-rose-50; }
-  .input { @apply min-h-10 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100; }
-  .label { @apply mb-1 block text-xs font-semibold text-slate-600; }
-  .pill { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold; }
+  .card { @apply rounded-[10px] border border-rule bg-white p-4 sm:p-5; }
+  .card-title { @apply mb-3 text-base font-semibold text-ink; }
+  .btn { @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-rule bg-white px-4 text-sm font-semibold text-ink transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-primary { @apply border-pass bg-pass text-white hover:bg-brand-700; }
+  .btn-accent { @apply border-accent bg-accent text-white hover:brightness-110; }
+  .btn-ghost { @apply bg-white text-ink; }
+  .btn-danger { @apply border-fail-bg bg-white text-fail hover:bg-fail-bg; }
+  .btn-sm { @apply min-h-8 px-3 text-xs; }
+  .input { @apply min-h-10 w-full rounded-lg border border-rule bg-white px-3 py-2 text-sm text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent-bg; }
+  .label { @apply mb-1 block text-xs font-medium text-sub; }
+  .pill { @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold; }
+  .pill-pass { @apply bg-pass-bg text-pass; }
+  .pill-fail { @apply bg-fail-bg text-fail; }
+  .pill-wait { @apply bg-wait-bg text-wait; }
+  .pill-info { @apply bg-accent-bg text-accent; }
   .table { @apply w-full text-left text-sm; }
-  .table th { @apply whitespace-nowrap border-b border-slate-200 px-2 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500; }
+  .table th { @apply whitespace-nowrap border-b border-rule px-2 py-2 text-xs font-medium text-sub; }
   .table td { @apply whitespace-nowrap border-b border-slate-100 px-2 py-2; }
+  .num { @apply text-right font-mono tabular-nums; }
+  .page-title { @apply text-2xl font-bold tracking-tight; }
+  .lede { @apply mt-1 text-sub; }
 }
