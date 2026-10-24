@@ -47,6 +47,8 @@ export interface WeeklyScore {
   githubPushed: boolean;
   linkedinPosted: boolean;
   waiverRequested48h: boolean;
+  /** That week's meeting hasn't finished yet, so nothing can be fined. */
+  meetingOpen?: boolean;
 }
 
 export interface PeerReview {

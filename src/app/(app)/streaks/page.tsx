@@ -35,7 +35,7 @@ export default async function StreaksPage() {
             <div key={m.id} className="grid gap-3 border-b border-slate-100 py-3 last:border-0 md:grid-cols-[170px_1fr] md:items-center">
               <div>
                 <b className="block">{c.name(m.id)}{m.id === me && ' (you)'}</b>
-                <small className="text-sub">🔥 {streak}-day streak · {studied} of {days.length} days</small>
+                <small className="text-sub">{streak > 0 ? `🔥 ${streak}-day streak` : 'No streak'} · studied {studied} of {days.length} days</small>
                 {m.id !== me && me && !studiedToday && upTo && <div className="mt-1.5"><NudgeButton toId={m.id} name={c.name(m.id)} sent={myNudges.some(n => n.toId === m.id)} /></div>}
               </div>
               <div className="overflow-x-auto pb-1">

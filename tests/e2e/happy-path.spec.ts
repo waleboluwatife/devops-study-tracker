@@ -1,17 +1,9 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { signIn } from './helpers';
 
 // A tiny valid PNG to use as "proof".
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
 
-async function signIn(browser: Browser, email: string): Promise<Page> {
-  const context = await browser.newContext({ ...test.info().project.use });
-  const page = await context.newPage();
-  await page.goto('/signin');
-  await page.getByPlaceholder('invited@email.com').fill(email);
-  await page.getByRole('button', { name: 'Go', exact: true }).click();
-  await expect(page.getByText('Leaderboard')).toBeVisible();
-  return page;
-}
 
 test('log → peer verify → counts; edit clears verification', async ({ browser }) => {
   const note = `e2e ${Date.now()}`;
@@ -49,7 +41,7 @@ test('log → peer verify → counts; edit clears verification', async ({ browse
   await michael.goto('/log');
   await expect(myLog.getByText('Verified by Chisom')).toBeVisible();
   await michael.goto('/');
-  await expect(michael.getByText(/\d+(\.\d+)?\s*\/ 6h verified/)).toBeVisible();
+  await expect(michael.getByText(/^\d+(\.\d+)? \/ 6h$/)).toBeVisible();
 
   // Editing the verified log clears the verification.
   await michael.goto('/log');

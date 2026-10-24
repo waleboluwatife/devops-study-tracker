@@ -1,6 +1,6 @@
 // Loads a round from the database and maps it into the rules engine's plain shapes.
 import type { PrismaClient } from '@prisma/client';
-import type { RoundData } from '@/lib/rules';
+import { meetingStart, type RoundData } from '@/lib/rules';
 
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 
@@ -10,6 +10,9 @@ export async function loadRoundData(prisma: PrismaClient, roundId: string): Prom
     include: { group: true, roundMembers: true, logs: true, scores: true, reviews: true, payments: true, carryOvers: true },
   });
   const g = round.group;
+  const now = Date.now();
+  const meetingOpen = (week: number) =>
+    meetingStart(week, isoDate(round.startDate), g.meetingTime, g.timezone).getTime() + g.meetingMinutes * 60_000 > now;
   return {
     settings: {
       startDate: isoDate(round.startDate),
@@ -31,6 +34,7 @@ export async function loadRoundData(prisma: PrismaClient, roundId: string): Prom
       memberId: s.roundMemberId, week: s.week, attended: s.attended, late15Plus: s.late15Plus,
       studiedAndPresented: s.studiedAndPresented, githubPushed: s.githubPushed,
       linkedinPosted: s.linkedinPosted, waiverRequested48h: s.waiverRequested48h,
+      meetingOpen: meetingOpen(s.week),
     })),
     reviews: round.reviews.map(r => ({ week: r.week, revieweeId: r.revieweeId, reviewerId: r.reviewerId, signedOff: r.signedOff })),
     payments: round.payments.map(p => ({ memberId: p.roundMemberId, amount: p.amount })),

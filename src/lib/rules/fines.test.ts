@@ -211,3 +211,14 @@ describe('Rule 11: outstanding fines', () => {
     expect(poolBalance(paid)).toBe(15000);
   });
 });
+
+describe('weeks whose meeting has not finished', () => {
+  it('produce no fines yet, even with a score row (e.g. from check-in or a deliverable link)', () => {
+    const scores = [{ ...score('timi', 2, { attended: false }), meetingOpen: true }];
+    expect(computeFines(SETTINGS, FOUR, scores)).toEqual([]);
+  });
+  it('are fined normally once the meeting is over', () => {
+    const scores = [{ ...score('timi', 2, { attended: false }), meetingOpen: false }];
+    expect(one(computeFines(SETTINGS, FOUR, scores), 'timi', 2)?.missed).toBeGreaterThan(0);
+  });
+});

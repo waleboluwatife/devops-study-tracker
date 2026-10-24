@@ -45,7 +45,7 @@ export function computeFines(
 
   for (const score of ordered) {
     const member = byId.get(score.memberId);
-    if (!member || score.week < 1 || score.week < member.joinedWeek) continue;
+    if (!member || score.meetingOpen || score.week < 1 || score.week < member.joinedWeek) continue;
 
     let missed = 0; let waived = false; let waiverRefused = false;
     if (missedSession(score)) {

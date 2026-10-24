@@ -24,7 +24,7 @@ export default async function FinesPage() {
         <h1 className="page-title">Fines and pool</h1>
         <p className="lede">Outstanding = fines + carried over − paid. Everything here is calculated from the scoreboard.</p>
       </div>
-      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+      <div className="grid items-start gap-4 lg:grid-cols-[1.6fr_1fr]">
         <div className="space-y-4">
           <section className="card">
             <div className="-mx-2 overflow-x-auto">

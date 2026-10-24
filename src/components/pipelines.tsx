@@ -22,7 +22,7 @@ export function Pipelines({ items }: { items: Pipeline[] }) {
       </div>
       {items.map(p => (
         <div key={p.id} className={`${cols} rounded-[10px] border border-rule bg-white px-3 py-2.5`}>
-          <div><b className="block">{p.name}</b><small className="text-sub">reviewed by {p.reviewer}</small></div>
+          <div className="col-start-1 row-start-1 md:col-start-auto md:row-start-auto"><b className="block">{p.name}</b><small className="text-sub">reviewed by {p.reviewer}</small></div>
           <ol className="col-span-2 row-start-2 grid grid-cols-5 md:col-span-1 md:row-start-auto" aria-label={`${p.name}'s week`}>
             {p.stages.map((s, i) => (
               <li key={s.label} className="relative grid place-items-center" title={s.detail}>
@@ -33,7 +33,7 @@ export function Pipelines({ items }: { items: Pipeline[] }) {
               </li>
             ))}
           </ol>
-          <div className="row-start-1 text-right md:row-start-auto">
+          <div className="col-start-2 row-start-1 text-right md:col-start-auto md:row-start-auto">
             {p.short > 0 ? <span className="pill pill-wait font-mono">{p.short}h short</span> : <span className="pill pill-pass font-mono">On track</span>}
             {p.waiting > 0 && <small className="block font-mono text-xs text-sub">{p.waiting} awaiting check</small>}
           </div>

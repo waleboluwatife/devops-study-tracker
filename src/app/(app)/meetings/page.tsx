@@ -39,7 +39,7 @@ export default async function MeetingsPage() {
         <h1 className="page-title">Meetings</h1>
         <p className="lede">Every Saturday. The link, the agenda and check-in all live here.</p>
       </div>
-      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+      <div className="grid items-start gap-4 lg:grid-cols-[1.6fr_1fr]">
         <div className="min-w-0 space-y-4">
           <section className="card space-y-4">
             <div><p className="text-xl font-bold">{when}</p><Countdown start={start.toISOString()} minutes={c.meeting.minutes} /></div>
