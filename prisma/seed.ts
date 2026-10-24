@@ -99,7 +99,7 @@ async function main() {
     await tx.fineCarryOver.create({
       data: { roundId: round.id, roundMemberId: roundMembers[0].id, amount: 15000, note: 'Unpaid fines from Round 1' },
     });
-  });
+  }, { maxWait: 20_000, timeout: 120_000 }); // remote databases are slow over many round-trips
 
   console.log(`Seeded "${GROUP_NAME}": ${MEMBERS.length} members, ${courses.length} courses, ${TOTAL_WEEKS} syllabus weeks${syllabusCsv ? '' : ' (placeholders — add seed/syllabus.csv)'}.`);
 }
