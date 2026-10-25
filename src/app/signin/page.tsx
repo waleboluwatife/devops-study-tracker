@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation';
 import { AuthError } from 'next-auth';
-import { auth, devLoginEnabled, signIn } from '@/auth';
+import { auth, devLoginEnabled, googleEnabled, signIn } from '@/auth';
 
 const MESSAGES: Record<string, string> = {
-  'not-invited': 'That account isn’t a member of the group yet. Ask an admin to add your email in Settings.',
+  'not-invited': 'None of the verified emails on that account is a member yet. Ask an admin to add your email in Settings.',
   CredentialsSignin: 'That email isn’t a member of the group yet.',
   AccessDenied: 'That account isn’t a member of the group yet. Ask an admin to add your email in Settings.',
 };
@@ -13,6 +13,10 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
   const session = await auth();
   if (session?.user && !error) redirect('/');
 
+  async function github() {
+    'use server';
+    await signIn('github', { redirectTo: '/' });
+  }
   async function google() {
     'use server';
     await signIn('google', { redirectTo: '/' });
@@ -36,9 +40,14 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
 
         {error && <p role="alert" className="mt-4 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{MESSAGES[error] ?? 'Sign-in failed. Please try again.'}</p>}
 
-        <form action={google} className="mt-6">
-          <button className="btn btn-primary w-full" type="submit">Sign in with Google</button>
+        <form action={github} className="mt-6">
+          <button className="btn btn-primary w-full" type="submit">Sign in with GitHub</button>
         </form>
+        {googleEnabled && (
+          <form action={google} className="mt-2">
+            <button className="btn w-full" type="submit">Sign in with Google</button>
+          </form>
+        )}
 
         {devLoginEnabled && (
           <form action={dev} className="mt-6 border-t border-dashed border-slate-200 pt-4">

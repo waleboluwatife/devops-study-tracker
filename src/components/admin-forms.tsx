@@ -69,7 +69,7 @@ export function MemberForm({ values, isNew = false }: { values: MemberValues; is
     <form action={action} className="grid gap-2 sm:grid-cols-[1fr_1.4fr_6rem_auto_auto] sm:items-end">
       {values.memberId && <input type="hidden" name="memberId" value={values.memberId} />}
       <div><label className="label">Name</label><input name="displayName" required defaultValue={values.displayName} className="input" /></div>
-      <div><label className="label">Google email (to sign in)</label><input name="email" type="email" defaultValue={values.email} placeholder="name@gmail.com" className="input" /></div>
+      <div><label className="label">Email on their GitHub account</label><input name="email" type="email" defaultValue={values.email} placeholder="name@gmail.com" className="input" /></div>
       <div><label className="label">Join week</label><input name="joinedWeek" type="number" min="1" defaultValue={values.joinedWeek} className="input" /></div>
       <label className="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" name="isAdmin" defaultChecked={values.isAdmin} /> Admin</label>
       <SubmitButton className="btn btn-ghost">{isNew ? 'Add member' : 'Save'}</SubmitButton>

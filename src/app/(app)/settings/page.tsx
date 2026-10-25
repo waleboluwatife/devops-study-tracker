@@ -34,7 +34,7 @@ export default async function SettingsPage() {
               <p className="mb-2 text-sm font-semibold">Add a member</p>
               <MemberForm isNew values={{ displayName: '', email: '', joinedWeek: v.week, isAdmin: false }} />
             </div>
-            <p className="text-xs text-slate-500">People sign in with Google using the email you enter here. Join week controls when they start being counted, paired and fined.</p>
+            <p className="text-xs text-slate-500">People sign in with GitHub. Enter any verified email on their GitHub account. Join week controls when they start being counted, paired and fined.</p>
           </div>
         ) : (
           <ul className="divide-y divide-slate-100 text-sm">
